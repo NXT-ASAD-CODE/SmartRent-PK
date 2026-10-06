@@ -319,3 +319,125 @@ h1.rtitle{font-size:clamp(34px,5vw,52px)}
   .nav .btn.small{animation:linkin .5s 1s backwards,ring 2.4s 2s infinite}
 }
 @keyframes ring{0%{box-shadow:0 0 0 0 rgba(217,154,0,.55)}70%,100%{box-shadow:0 0 0 14px rgba(217,154,0,0)}}
+/* =========================================================
+   SmartRent PK — Mobile Rent Navbar Fix
+   Fixes the "Choose a locker" / Rent page header on phones
+   ========================================================= */
+
+.rentbar {
+  width: 100%;
+  overflow: hidden;
+}
+
+.rentbar .wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.backbtn,
+.rentbrand {
+  min-width: 0;
+}
+
+.backbtn {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+.rentbrand {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/* Tablets and normal phones */
+@media (max-width: 600px) {
+  .rentbar .wrap {
+    height: 60px;
+    gap: 10px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .backbtn {
+    padding: 7px 10px 7px 8px;
+    gap: 5px;
+    font-size: 13px;
+    flex-shrink: 1;
+  }
+
+  .backbtn svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
+
+  .rentbrand {
+    gap: 7px;
+    font-size: 17px;
+    flex-shrink: 1;
+  }
+
+  .rentbrand svg {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 400px) {
+  .rentbar .wrap {
+    height: 56px;
+    gap: 7px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .backbtn {
+    padding: 6px 8px 6px 6px;
+    gap: 4px;
+    font-size: 12px;
+    border-width: 1px;
+  }
+
+  .backbtn svg {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+  }
+
+  .rentbrand {
+    gap: 5px;
+    font-size: 15px;
+  }
+
+  .rentbrand svg {
+    width: 20px;
+    height: 20px;
+    flex-basis: 20px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 340px) {
+  .rentbar .wrap {
+    padding-left: 8px;
+    padding-right: 8px;
+    gap: 5px;
+  }
+
+  .backbtn {
+    font-size: 11px;
+    padding: 5px 6px;
+  }
+
+  .rentbrand {
+    font-size: 14px;
+  }
+
+  .rentbrand svg {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+  }
+}
