@@ -441,3 +441,72 @@ h1.rtitle{font-size:clamp(34px,5vw,52px)}
     flex-basis: 18px;
   }
 }
+/* =========================================================
+   SmartRent PK — Force Dark Website Theme
+   The website stays dark regardless of browser/OS theme.
+   ========================================================= */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0E1714;
+  --panel: #16231F;
+  --ink: #E8F0EC;
+  --muted: #9DB0A7;
+  --line: #2A3A34;
+
+  --brand: #3FBF93;
+  --brand-ink: #08160F;
+  --signal: #F2B93B;
+
+  --ok: #4FD1A0;
+  --warn-bg: #3A2C08;
+  --warn-ink: #F2D58A;
+
+  --cab: #2B3A37;
+  --cab-dark: #42544F;
+  --door: #34443F;
+  --inside: #0A100E;
+
+  --ok-bg: #123327;
+  --bad: #FF9A92;
+}
+
+/* Override browser light-mode preference */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #0E1714;
+    --panel: #16231F;
+    --ink: #E8F0EC;
+    --muted: #9DB0A7;
+    --line: #2A3A34;
+
+    --brand: #3FBF93;
+    --brand-ink: #08160F;
+    --signal: #F2B93B;
+
+    --ok: #4FD1A0;
+    --warn-bg: #3A2C08;
+    --warn-ink: #F2D58A;
+
+    --cab: #2B3A37;
+    --cab-dark: #42544F;
+    --door: #34443F;
+    --inside: #0A100E;
+
+    --ok-bg: #123327;
+    --bad: #FF9A92;
+  }
+}
+
+/* Make browser controls follow the dark design too */
+html,
+body {
+  background: #0E1714;
+  color: #E8F0EC;
+  color-scheme: dark;
+}
