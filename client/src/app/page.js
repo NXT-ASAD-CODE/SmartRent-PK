@@ -345,14 +345,7 @@ function HeroBackground() {
     return () => clearInterval(interval);
   }, [cells]);
 
-  const cols = Math.max(
-    1,
-    Math.ceil(
-      (typeof window !== "undefined"
-        ? window.innerWidth
-        : 1080) / 76,
-    ),
-  );
+  const cols = 20;
 
   return (
     <div
