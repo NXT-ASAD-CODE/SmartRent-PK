@@ -1,5 +1,8 @@
 const express = require("express");
 const cors = require("cors");
+const authRoutes = require("./routes/authRoutes");
+const machineRoutes = require("./routes/machineRoutes");
+const lockerRoutes = require("./routes/lockerRoutes");
 
 const app = express();
 
@@ -14,5 +17,9 @@ app.get("/", (req, res) => {
     message: "SmartRent PK API is running",
   });
 });
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/machines", machineRoutes);
+app.use("/api/lockers", lockerRoutes);
 
 module.exports = app;
