@@ -1,45 +1,44 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const { ROLES } = require("../config/constants");
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
+    name: { type: String, required: [true, "Name is required"], trim: true },
     phone: {
       type: String,
-      required: true,
+      required: [true, "Phone is required"],
       unique: true,
       trim: true,
+      match: [/^(\+92|0)3\d{9}$/, "Enter a valid Pakistani mobile number"],
     },
-
     email: {
       type: String,
-      trim: true,
-      lowercase: true,
       unique: true,
-      sparse: true,
+      sparse: true, // lets many users have no email without clashing
+      lowercase: true,
+      trim: true,
     },
-
-    password: {
+    passwordHash: {
       type: String,
       required: true,
-      minlength: 6,
+      select: false, // never returned by default
     },
-
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: Object.values(ROLES),
+      default: ROLES.CUSTOMER,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-const User = mongoose.model("User", userSchema);
+userSchema.methods.comparePassword = function (plainPassword) {
+  return bcrypt.compare(plainPassword, this.passwordHash);
+};
 
-module.exports = User;
+userSchema.statics.hashPassword = function (plainPassword) {
+  return bcrypt.hash(plainPassword, 12);
+};
+
+module.exports = mongoose.model("User", userSchema);
