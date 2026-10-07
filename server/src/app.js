@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const authRoutes = require("./routes/authRoutes");
 const machineRoutes = require("./routes/machineRoutes");
 const lockerRoutes = require("./routes/lockerRoutes");
@@ -21,5 +22,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/machines", machineRoutes);
 app.use("/api/lockers", lockerRoutes);
+app.use(notFound);
+app.use(errorHandler);
 
 module.exports = app;
