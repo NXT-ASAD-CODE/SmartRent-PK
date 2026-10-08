@@ -45,6 +45,17 @@ const RENTAL_STATUS = {
   CANCELLED: "CANCELLED",
   OPENING_FAILED: "OPENING_FAILED",
 };
+const PAYMENT_TYPE = {
+  RENTAL: "RENTAL",
+  FINE: "FINE", // used later for expiry fines
+};
+
+const PAYMENT_STATUS = {
+  PENDING: "PENDING",
+  PAID: "PAID",
+  FAILED: "FAILED",
+  REFUND_REQUIRED: "REFUND_REQUIRED",
+};
 module.exports = {
   ROLES,
   MACHINE_STATUS,
@@ -53,4 +64,6 @@ module.exports = {
   LOCKER_STATUS,
   DOOR_STATE,
   RENTAL_STATUS,
+  PAYMENT_TYPE,
+  PAYMENT_STATUS,
 };
