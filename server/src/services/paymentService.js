@@ -1,12 +1,15 @@
 const crypto = require("crypto");
 const Payment = require("../models/Payment");
 const Rental = require("../models/Rental");
+const Fine = require("../models/Fine");
 const rentalService = require("./rentalService");
+const expiryService = require("./expiryService");
 const {
   ROLES,
   RENTAL_STATUS,
   PAYMENT_TYPE,
   PAYMENT_STATUS,
+  FINE_STATUS,
 } = require("../config/constants");
 
 const httpError = (statusCode, message) =>
@@ -87,6 +90,50 @@ exports.createPayment = async ({ userId, rentalId }) => {
   }
 };
 
+exports.createFinePayment = async ({ userId, fineId }) => {
+  const provider = getProvider();
+
+  const fine = await Fine.findById(fineId);
+  if (!fine) throw httpError(404, "Fine not found");
+  if (String(fine.user) !== String(userId)) {
+    throw httpError(403, "You cannot pay this fine");
+  }
+  if (fine.status !== FINE_STATUS.PENDING) {
+    throw httpError(409, "This fine has already been paid");
+  }
+
+  const open = await Payment.findOne({
+    rental: fine.rental,
+    type: PAYMENT_TYPE.FINE,
+    status: PAYMENT_STATUS.PENDING,
+  });
+  if (open) return { payment: open, reused: true };
+
+  const charge = provider.createCharge({ amount: fine.amount });
+
+  try {
+    const payment = await Payment.create({
+      rental: fine.rental,
+      user: userId,
+      amount: fine.amount,
+      type: PAYMENT_TYPE.FINE,
+      providerReference: charge.providerReference,
+      notes: charge.instructions,
+    });
+    return { payment, reused: false, charge };
+  } catch (err) {
+    if (err.code === 11000) {
+      const existing = await Payment.findOne({
+        rental: fine.rental,
+        type: PAYMENT_TYPE.FINE,
+        status: PAYMENT_STATUS.PENDING,
+      });
+      if (existing) return { payment: existing, reused: true };
+    }
+    throw err;
+  }
+};
+
 exports.verifyPayment = async ({ user, paymentId, simulate }) => {
   const provider = getProvider();
 
@@ -101,6 +148,11 @@ exports.verifyPayment = async ({ user, paymentId, simulate }) => {
   // Idempotent: verifying a paid payment again is harmless
   if (payment.status === PAYMENT_STATUS.PAID) {
     const rental = await Rental.findById(payment.rental);
+    if (payment.type === PAYMENT_TYPE.FINE) {
+      // Safe to repeat: finishes settlement if an earlier call was interrupted
+      const { fine, releaseCode, expiresAt } = await expiryService.settleFinePayment(payment);
+      return { payment, rental, verified: true, fine, releaseCode, releaseCodeExpiresAt: expiresAt };
+    }
     return { payment, rental, verified: true };
   }
   if (payment.status !== PAYMENT_STATUS.PENDING) {
@@ -128,6 +180,13 @@ exports.verifyPayment = async ({ user, paymentId, simulate }) => {
     const current = await Payment.findById(payment._id);
     const rental = await Rental.findById(payment.rental);
     return { payment: current, rental, verified: current.status === PAYMENT_STATUS.PAID };
+  }
+
+  // Fine payment: settle the fine and issue the release code
+  if (paid.type === PAYMENT_TYPE.FINE) {
+    const { fine, releaseCode, expiresAt } = await expiryService.settleFinePayment(paid);
+    const rental = await Rental.findById(paid.rental);
+    return { payment: paid, rental, verified: true, fine, releaseCode, releaseCodeExpiresAt: expiresAt };
   }
 
   try {
