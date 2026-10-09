@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Machine = require("../models/Machine");
+const hardwareService = require("../services/hardwareService");
 
 const MACHINE_EDITABLE_FIELDS = ["name", "location", "status", "capacity"];
 
@@ -59,4 +60,19 @@ exports.updateMachine = async (req, res) => {
   }
 
   res.status(200).json({ success: true, machine });
+};
+// POST /api/machines/:id/device-key (admin) - creates or rotates the ESP32 secret
+exports.createDeviceKey = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ success: false, message: "Invalid machine id" });
+  }
+
+  const { machine, deviceKey } = await hardwareService.rotateDeviceKey(req.params.id);
+
+  res.status(201).json({
+    success: true,
+    message: "Store this key on the device now. It will not be shown again.",
+    machineId: machine.machineId,
+    deviceKey,
+  });
 };
