@@ -3,6 +3,7 @@ require("dotenv").config();
 const app = require("./app");
 const connectDB = require("./config/db");
 const { runRentalSweep } = require("./services/rentalService");
+const { runHardwareSweep } = require("./services/hardwareService");
 
 const PORT = process.env.PORT || 5000;
 const SWEEP_INTERVAL_MS = 60 * 1000;
@@ -25,5 +26,16 @@ const startServer = async () => {
     }
   }, SWEEP_INTERVAL_MS);
 };
-
+  setInterval(async () => {
+    try {
+      const { machinesOffline, abandoned, timedOut } = await runHardwareSweep();
+      if (machinesOffline || abandoned || timedOut) {
+        console.log(
+          `🔧 Hardware sweep: ${machinesOffline} offline, ${abandoned} abandoned, ${timedOut} timed out`
+        );
+      }
+    } catch (err) {
+      console.error("Hardware sweep failed:", err.message);
+    }
+  }, 15 * 1000);
 startServer();

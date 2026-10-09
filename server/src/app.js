@@ -7,6 +7,7 @@ const lockerRoutes = require("./routes/lockerRoutes");
 const rentalRoutes = require("./routes/rentalRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const otpRoutes = require("./routes/otpRoutes");
+const deviceRoutes = require("./routes/deviceRoutes");
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/lockers", lockerRoutes);
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/otp", otpRoutes);
+app.use("/api/device", deviceRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
