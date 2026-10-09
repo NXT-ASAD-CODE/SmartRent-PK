@@ -32,6 +32,7 @@ const machineSchema = new mongoose.Schema(
       default: CONNECTIVITY.OFFLINE,
     },
     lastSeenAt: { type: Date, default: null }, // updated by the ESP32 heartbeat later
+    deviceKeyHash: { type: String, default: null, select: false }, // hash of the ESP32 secret
   },
   { timestamps: true }
 );
