@@ -33,23 +33,34 @@ exports.verifyPayment = async (req, res) => {
     return res.status(400).json({ success: false, message: "Valid paymentId is required" });
   }
 
-  const { payment, rental, verified } = await paymentService.verifyPayment({
-    user: req.user,
-    paymentId,
-    simulate,
-  });
+  const { payment, rental, verified, fine, releaseCode, releaseCodeExpiresAt } =
+    await paymentService.verifyPayment({
+      user: req.user,
+      paymentId,
+      simulate,
+    });
 
   if (!verified) {
     return res.status(402).json({
       success: false,
-      message: "Payment was not completed. You can try again while your reservation is held.",
+      message: "Payment was not completed. Please try again.",
       payment,
     });
   }
 
-  res.status(200).json({ success: true, payment, rental });
+  res.status(200).json({
+    success: true,
+    payment,
+    rental,
+    ...(fine && { fine }),
+    // Shown once. Only a hash is stored, so it cannot be retrieved later.
+    ...(releaseCode && {
+      releaseCode,
+      releaseCodeExpiresAt,
+      message: "Save this release code now. It will not be shown again.",
+    }),
+  });
 };
-
 // GET /api/payments  (customers: own, staff: all)
 exports.getPayments = async (req, res) => {
   const filter = isStaff(req.user) ? {} : { user: req.user._id };
