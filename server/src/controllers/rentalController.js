@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Rental = require("../models/Rental");
 const rentalService = require("../services/rentalService");
+const expiryService = require("../services/expiryService");
 const { ROLES } = require("../config/constants");
 
 const isStaff = (user) => [ROLES.ADMIN, ROLES.OPERATOR].includes(user.role);
@@ -65,6 +66,21 @@ exports.cancelRental = async (req, res) => {
   const rental = await rentalService.cancelRental({
     rentalId: req.params.id,
     user: req.user,
+  });
+
+  res.status(200).json({ success: true, rental });
+};
+// POST /api/rentals/:id/hold  (admin, operator)
+exports.holdRental = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ success: false, message: "Invalid rental id" });
+  }
+
+  const { location } = req.body || {};
+  const rental = await expiryService.moveToHolding({
+    staff: req.user,
+    rentalId: req.params.id,
+    location,
   });
 
   res.status(200).json({ success: true, rental });

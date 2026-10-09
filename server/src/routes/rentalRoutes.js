@@ -4,8 +4,10 @@ const {
   getRentals,
   getRentalById,
   cancelRental,
+  holdRental,
 } = require("../controllers/rentalController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const { ROLES } = require("../config/constants");
 
 const router = express.Router();
 
@@ -15,5 +17,6 @@ router.post("/", createRental);
 router.get("/", getRentals);
 router.get("/:id", getRentalById);
 router.post("/:id/cancel", cancelRental);
+router.post("/:id/hold", authorizeRoles(ROLES.ADMIN, ROLES.OPERATOR), holdRental);
 
 module.exports = router;
