@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Machine = require("../models/Machine");
 const Locker = require("../models/Locker");
+const hardwareService = require("../services/hardwareService");
 const { LOCKER_STATUS } = require("../config/constants");
 
 // Admins/operators may only toggle these manually.
@@ -106,4 +107,56 @@ exports.updateLocker = async (req, res) => {
   await locker.save(); // runs validators
 
   res.status(200).json({ success: true, locker });
+};
+// POST /api/lockers/:id/unlock  (rental owner, verified OTP required)
+exports.unlockLocker = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ success: false, message: "Invalid locker id" });
+  }
+
+  const command = await hardwareService.requestUnlock({
+    user: req.user,
+    lockerId: req.params.id,
+  });
+
+  // 202: queued, NOT confirmed. Poll GET /:id/command for the real result.
+  res.status(202).json({
+    success: true,
+    confirmed: false,
+    message: "Unlock requested. Waiting for the machine to confirm.",
+    command: {
+      commandId: command.commandId,
+      purpose: command.purpose,
+      status: command.status,
+    },
+  });
+};
+
+// GET /api/lockers/:id/command  (rental owner or staff)
+exports.getLockerCommand = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ success: false, message: "Invalid locker id" });
+  }
+
+  const result = await hardwareService.getCommandStatus({
+    user: req.user,
+    lockerId: req.params.id,
+  });
+
+  res.status(200).json({ success: true, ...result });
+};
+
+// POST /api/lockers/:id/resolve  (admin, operator)
+exports.resolveLockerFailure = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ success: false, message: "Invalid locker id" });
+  }
+
+  const { resolution } = req.body || {};
+  const result = await hardwareService.resolveFailure({
+    lockerId: req.params.id,
+    resolution,
+  });
+
+  res.status(200).json({ success: true, ...result });
 };
