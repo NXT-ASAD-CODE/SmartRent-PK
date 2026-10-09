@@ -16,6 +16,7 @@ const rentalSchema = new mongoose.Schema(
     reservationExpiresAt: { type: Date, required: true },
     startTime: { type: Date, default: null },
     expiryTime: { type: Date, default: null },
+    itemStoredAt: { type: Date, default: null }, // set when a deposit completes
     endedAt: { type: Date, default: null },
   },
   { timestamps: true }
@@ -24,5 +25,6 @@ const rentalSchema = new mongoose.Schema(
 rentalSchema.index({ user: 1, status: 1 });
 rentalSchema.index({ status: 1, reservationExpiresAt: 1 });
 rentalSchema.index({ status: 1, expiryTime: 1 });
+
 
 module.exports = mongoose.model("Rental", rentalSchema);
