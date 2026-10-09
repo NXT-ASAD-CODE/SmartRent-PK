@@ -8,6 +8,8 @@ const rentalRoutes = require("./routes/rentalRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const otpRoutes = require("./routes/otpRoutes");
 const deviceRoutes = require("./routes/deviceRoutes");
+const fineRoutes = require("./routes/fineRoutes");
+const releaseRoutes = require("./routes/releaseRoutes");
 
 const app = express();
 
@@ -30,6 +32,8 @@ app.use("/api/rentals", rentalRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/device", deviceRoutes);
+app.use("/api/fines", fineRoutes);
+app.use("/api/release-codes", releaseRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
