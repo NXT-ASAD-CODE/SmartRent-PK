@@ -4,6 +4,7 @@ const {
   getMachines,
   getMachineById,
   updateMachine,
+  createDeviceKey,
 } = require("../controllers/machineController");
 const {
   createLocker,
