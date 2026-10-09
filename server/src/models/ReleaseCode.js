@@ -9,7 +9,7 @@ const releaseCodeSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: Object.values(RELEASE_CODE_STATUS),
-      default: RELEASE_CODE_STATUS.ACTIVE,  
+      default: RELEASE_CODE_STATUS.ACTIVE,
     },
     attempts: { type: Number, default: 0 },
     expiresAt: { type: Date, required: true },
