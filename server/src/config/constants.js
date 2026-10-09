@@ -66,6 +66,28 @@ const OTP_STATUS = {
   CONSUMED: "CONSUMED",
   INVALIDATED: "INVALIDATED",
 };
+const COMMAND_STATUS = {
+  PENDING: "PENDING",     // queued, not yet delivered
+  SENT: "SENT",           // delivered to the machine
+  RELEASED: "RELEASED",   // device says the lock was actuated
+  CONFIRMED: "CONFIRMED", // door sensor confirmed the door is open
+  COMPLETED: "COMPLETED", // door closed again
+  FAILED: "FAILED",       // device reported failure
+  TIMEOUT: "TIMEOUT",     // delivered but no acknowledgement
+  ABANDONED: "ABANDONED", // never opened; no fault
+};
+
+const COMMAND_IN_FLIGHT = [
+  COMMAND_STATUS.PENDING,
+  COMMAND_STATUS.SENT,
+  COMMAND_STATUS.RELEASED,
+  COMMAND_STATUS.CONFIRMED,
+];
+
+const ACCESS_PURPOSE = {
+  DEPOSIT: "DEPOSIT",
+  RETRIEVE: "RETRIEVE",
+};
 module.exports = {
   ROLES,
   MACHINE_STATUS,
@@ -78,4 +100,7 @@ module.exports = {
   PAYMENT_STATUS,
   OTP_PURPOSE,
   OTP_STATUS,
+  COMMAND_STATUS,
+  COMMAND_IN_FLIGHT,
+  ACCESS_PURPOSE,
 };
