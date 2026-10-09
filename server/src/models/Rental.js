@@ -17,6 +17,13 @@ const rentalSchema = new mongoose.Schema(
     startTime: { type: Date, default: null },
     expiryTime: { type: Date, default: null },
     itemStoredAt: { type: Date, default: null }, // set when a deposit completes
+    expiryProcessedAt: { type: Date, default: null }, // set once expiry handling has run
+    holding: {
+      location: { type: String, default: null },
+      movedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      movedAt: { type: Date, default: null },
+    },
+    releasedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     endedAt: { type: Date, default: null },
   },
   { timestamps: true }
