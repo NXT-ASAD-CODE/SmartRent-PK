@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const audit = require("../services/auditService");
 
 exports.protect = async (req, res, next) => {
   const header = req.headers.authorization;
@@ -33,6 +34,12 @@ exports.authorizeRoles =
   (...roles) =>
   (req, res, next) => {
     if (!roles.includes(req.user.role)) {
+      audit.log({
+        user: req.user,
+        action: "AUTHORIZATION_DENIED",
+        result: "FAILURE",
+        metadata: { method: req.method, path: req.originalUrl },
+      });
       return res
         .status(403)
         .json({ success: false, message: "Access denied for your role" });
