@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
+const audit = require("../services/auditService");
 
 const sanitizeUser = (user) => ({
   id: user._id,
@@ -36,6 +37,8 @@ const registerUser = async (req, res) => {
     passwordHash: await User.hashPassword(password),
   });
 
+  audit.log({ user, action: "USER_REGISTERED" });
+
   res.status(201).json({
     success: true,
     message: "User registered successfully",
@@ -59,11 +62,19 @@ const loginUser = async (req, res) => {
 
   // Same message for both failures so attackers can't tell which was wrong
   if (!user || !(await user.comparePassword(password))) {
+    audit.log({
+      user,
+      action: "LOGIN_FAILED",
+      result: "FAILURE",
+      metadata: { phone: audit.maskPhone(phone) },
+    });
     return res.status(401).json({
       success: false,
       message: "Invalid phone or password",
     });
   }
+
+  audit.log({ user, action: "LOGIN_SUCCESS" });
 
   res.status(200).json({
     success: true,
