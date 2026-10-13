@@ -4,6 +4,7 @@ const Rental = require("../models/Rental");
 const Fine = require("../models/Fine");
 const rentalService = require("./rentalService");
 const expiryService = require("./expiryService");
+const audit = require("./auditService");
 const {
   ROLES,
   RENTAL_STATUS,
@@ -167,6 +168,13 @@ exports.verifyPayment = async ({ user, paymentId, simulate }) => {
       { status: PAYMENT_STATUS.FAILED },
       { returnDocument: "after" }
     );
+    audit.log({
+      user,
+      action: "PAYMENT_FAILED",
+      result: "FAILURE",
+      rental: payment.rental,
+      metadata: { paymentId: payment._id, type: payment.type, amount: payment.amount },
+    });
     return { payment: failed || payment, rental: null, verified: false };
   }
 
@@ -186,11 +194,25 @@ exports.verifyPayment = async ({ user, paymentId, simulate }) => {
   if (paid.type === PAYMENT_TYPE.FINE) {
     const { fine, releaseCode, expiresAt } = await expiryService.settleFinePayment(paid);
     const rental = await Rental.findById(paid.rental);
+    audit.log({
+      user,
+      action: "FINE_PAID",
+      rental: paid.rental,
+      metadata: { paymentId: paid._id, amount: paid.amount },
+    });
     return { payment: paid, rental, verified: true, fine, releaseCode, releaseCodeExpiresAt: expiresAt };
   }
 
   try {
     const rental = await rentalService.activateRental(payment.rental);
+    audit.log({
+      user,
+      action: "PAYMENT_VERIFIED",
+      machine: rental.machine,
+      locker: rental.locker,
+      rental: rental._id,
+      metadata: { paymentId: paid._id, amount: paid.amount },
+    });
     return { payment: paid, rental, verified: true };
   } catch (err) {
     // Money received but the rental can no longer start (e.g. reservation expired)
@@ -201,6 +223,20 @@ exports.verifyPayment = async ({ user, paymentId, simulate }) => {
         notes: `Payment received but rental could not be activated: ${err.message}`,
       }
     );
+    audit.log({
+      user,
+      action: "PAYMENT_REFUND_REQUIRED",
+      result: "FAILURE",
+      rental: paid.rental,
+      metadata: { paymentId: paid._id, amount: paid.amount },
+    });
+    await audit.reportIncident({
+      type: "REFUND_REQUIRED",
+      severity: "HIGH",
+      rental: paid.rental,
+      payment: paid._id,
+      description: `Payment of Rs.${paid.amount} received but the rental could not start`,
+    });
     throw httpError(
       409,
       "Payment was received but your reservation had expired. It has been flagged for a refund."
