@@ -1,5 +1,6 @@
 const Rental = require("../models/Rental");
 const Locker = require("../models/Locker");
+const audit = require("./auditService");
 const {
   ROLES,
   RENTAL_STATUS,
@@ -83,6 +84,14 @@ exports.createRental = async ({ userId, lockerId, durationHours }) => {
     });
 
     await Locker.updateOne({ _id: lockerId }, { currentRental: rental._id });
+    audit.log({
+      user: { _id: userId },
+      action: "RENTAL_RESERVED",
+      machine: rental.machine,
+      locker: rental.locker,
+      rental: rental._id,
+      metadata: { durationHours, price: rental.price },
+    });
     return rental;
   } catch (err) {
     // Never leave a locker stuck in RESERVED if rental creation failed
@@ -113,6 +122,13 @@ exports.cancelRental = async ({ rentalId, user }) => {
   }
 
   await releaseLocker(rental.locker, rental._id);
+  audit.log({
+    user,
+    action: "RENTAL_CANCELLED",
+    machine: rental.machine,
+    locker: rental.locker,
+    rental: rental._id,
+  });
   return cancelled;
 };
 
@@ -137,6 +153,14 @@ exports.activateRental = async (rentalId) => {
     { _id: rental.locker, currentRental: rental._id },
     { status: LOCKER_STATUS.OCCUPIED }
   );
+  audit.log({
+    user: { _id: rental.user },
+    action: "RENTAL_ACTIVATED",
+    machine: rental.machine,
+    locker: rental.locker,
+    rental: rental._id,
+    metadata: { expiryTime: expiry },
+  });
   return activated;
 };
 
@@ -159,6 +183,7 @@ exports.runRentalSweep = async () => {
     if (done) {
       await releaseLocker(r.locker, r._id);
       cancelled++;
+      audit.log({ action: "RESERVATION_EXPIRED", locker: r.locker, rental: r._id });
     }
   }
 
@@ -178,6 +203,7 @@ exports.runRentalSweep = async () => {
         { status: LOCKER_STATUS.EXPIRED }
       );
       expired++;
+      audit.log({ action: "RENTAL_EXPIRED", locker: r.locker, rental: r._id });
     }
   }
 
