@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const OTP = require("../models/OTP");
 const Rental = require("../models/Rental");
+const audit = require("./auditService");
 const {
   RENTAL_STATUS,
   OTP_PURPOSE,
@@ -134,6 +135,8 @@ exports.requestOtp = async ({ user, rentalId, purpose = OTP_PURPOSE.LOCKER_ACCES
     message: `Your SmartRent PK code is ${code}. It expires in ${expiryMinutes} minutes. Do not share it.`,
   });
 
+  audit.log({ user, action: "OTP_REQUESTED", rental: rental._id });
+
   return {
     otp,
     maskedPhone: maskPhone(user.phone),
@@ -178,6 +181,13 @@ exports.verifyOtp = async ({ user, rentalId, purpose = OTP_PURPOSE.LOCKER_ACCESS
 
   if (!safeEqual(attempt.codeHash, hashCode(attempt._id, String(code)))) {
     const left = maxAttempts - attempt.attempts;
+    audit.log({
+      user,
+      action: left <= 0 ? "OTP_LOCKED" : "OTP_FAILED",
+      result: "FAILURE",
+      rental: rentalId,
+      metadata: { attempts: attempt.attempts },
+    });
     if (left <= 0) {
       await invalidate(attempt._id);
       throw httpError(429, "Too many incorrect attempts. Please request a new code.");
@@ -192,6 +202,7 @@ exports.verifyOtp = async ({ user, rentalId, purpose = OTP_PURPOSE.LOCKER_ACCESS
   );
   if (!verified) throw httpError(409, "Code was already used. Please request a new one.");
 
+  audit.log({ user, action: "OTP_VERIFIED", rental: rentalId });
   return verified;
 };
 
