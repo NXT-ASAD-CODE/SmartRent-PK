@@ -5,6 +5,7 @@ const Locker = require("../models/Locker");
 const Rental = require("../models/Rental");
 const Payment = require("../models/Payment");
 const otpService = require("./otpService");
+const audit = require("./auditService");
 const {
   ROLES,
   MACHINE_STATUS,
@@ -116,9 +117,22 @@ const failCommand = async (locker, finalStatus, reason, fromStatuses) => {
       { _id: failed.command.rental, status: RENTAL_STATUS.ACTIVE },
       { status: RENTAL_STATUS.OPENING_FAILED }
     );
-    console.error(
-      `🚨 HARDWARE FAULT: locker ${locker._id} -> ${lockerStatus} (${reason || "no reason"})`
-    );
+    await audit.reportIncident({
+      type: finalStatus === C.TIMEOUT ? "SENSOR_TIMEOUT" : "OPENING_FAILED",
+      severity: "HIGH",
+      machine: locker.machine,
+      locker: locker._id,
+      rental: failed.command.rental,
+      description: reason || "Hardware fault",
+    });
+    audit.log({
+      action: "HARDWARE_FAULT",
+      result: "FAILURE",
+      machine: locker.machine,
+      locker: locker._id,
+      rental: failed.command.rental,
+      metadata: { lockerStatus, reason },
+    });
     return failed;
   }
 
@@ -222,6 +236,14 @@ exports.requestUnlock = async ({ user, lockerId }) => {
     );
   }
 
+  audit.log({
+    user,
+    action: "UNLOCK_REQUESTED",
+    machine: locker.machine._id,
+    locker: locker._id,
+    rental: rental._id,
+    metadata: { purpose },
+  });
   return queued.command;
 };
 
@@ -273,6 +295,15 @@ exports.processHeartbeat = async ({ machine, doors }) => {
     { _id: machine._id },
     { connectivityStatus: CONNECTIVITY.ONLINE, lastSeenAt: now }
   );
+
+  if (machine.connectivityStatus !== CONNECTIVITY.ONLINE) {
+    audit.log({ actorType: "DEVICE", action: "MACHINE_ONLINE", machine: machine._id });
+    await audit.resolveIncidents({
+      types: ["MACHINE_OFFLINE"],
+      machine: machine._id,
+      note: "Machine reconnected",
+    });
+  }
 
   // Door telemetry (state changes themselves arrive as events)
   const ops = (doors || [])
@@ -387,10 +418,35 @@ exports.processEvent = async ({ machine, lockerNumber, event, commandId, reason 
     });
 
     const authorized = Boolean(confirmed) || locker.command?.status === C.CONFIRMED;
+    if (confirmed) {
+      audit.log({
+        actorType: "DEVICE",
+        action: "ACCESS_CONFIRMED",
+        machine: machine._id,
+        locker: locker._id,
+        rental: locker.command?.rental,
+        metadata: { commandId },
+      });
+    }
     if (!authorized) {
       console.warn(
         `⚠️  Unauthorized door open: machine ${machine.machineId} locker ${lockerNumber}`
       );
+      audit.log({
+        actorType: "DEVICE",
+        action: "UNAUTHORIZED_DOOR_OPEN",
+        result: "FAILURE",
+        machine: machine._id,
+        locker: locker._id,
+      });
+      await audit.reportIncident({
+        type: "UNAUTHORIZED_DOOR_OPEN",
+        severity: "CRITICAL",
+        machine: machine._id,
+        locker: locker._id,
+        rental: locker.currentRental,
+        description: `Door opened without an authorized unlock (${machine.machineId}, locker ${lockerNumber})`,
+      });
       await Locker.updateOne(
         { _id: locker._id },
         { "hardwareState.lastEvent": "UNAUTHORIZED_DOOR_OPEN" }
@@ -414,7 +470,17 @@ exports.processEvent = async ({ machine, lockerNumber, event, commandId, reason 
     { "command.status": C.COMPLETED, "command.completedAt": now },
     { returnDocument: "after" }
   );
-  if (completed) await finalizeCommand(completed);
+  if (completed) {
+    await finalizeCommand(completed);
+    audit.log({
+      actorType: "DEVICE",
+      action: "ACCESS_COMPLETED",
+      machine: machine._id,
+      locker: locker._id,
+      rental: completed.command.rental,
+      metadata: { purpose: completed.command.purpose },
+    });
+  }
 
   return { accepted: true, completed: Boolean(completed) };
 };
@@ -491,14 +557,31 @@ exports.runHardwareSweep = async () => {
   const now = Date.now();
   const result = { machinesOffline: 0, abandoned: 0, timedOut: 0 };
 
-  const offline = await Machine.updateMany(
-    {
-      connectivityStatus: CONNECTIVITY.ONLINE,
-      $or: [{ lastSeenAt: null }, { lastSeenAt: { $lt: new Date(now - offlineMs) } }],
-    },
-    { connectivityStatus: CONNECTIVITY.OFFLINE }
-  );
-  result.machinesOffline = offline.modifiedCount;
+  const staleFilter = {
+    connectivityStatus: CONNECTIVITY.ONLINE,
+    $or: [{ lastSeenAt: null }, { lastSeenAt: { $lt: new Date(now - offlineMs) } }],
+  };
+  const stale = await Machine.find(staleFilter).select("_id machineId");
+  for (const m of stale) {
+    const done = await Machine.findOneAndUpdate(
+      { _id: m._id, ...staleFilter },
+      { connectivityStatus: CONNECTIVITY.OFFLINE }
+    );
+    if (done) {
+      result.machinesOffline++;
+      audit.log({
+        action: "MACHINE_OFFLINE",
+        result: "FAILURE",
+        machine: m._id,
+      });
+      await audit.reportIncident({
+        type: "MACHINE_OFFLINE",
+        severity: "MEDIUM",
+        machine: m._id,
+        description: `${m.machineId} stopped sending heartbeats`,
+      });
+    }
+  }
 
   // Never picked up: nothing physical happened
   const notPickedUp = await Locker.find({
