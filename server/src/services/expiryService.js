@@ -3,6 +3,7 @@ const Rental = require("../models/Rental");
 const Locker = require("../models/Locker");
 const Fine = require("../models/Fine");
 const ReleaseCode = require("../models/ReleaseCode");
+const audit = require("./auditService");
 const {
   RENTAL_STATUS,
   LOCKER_STATUS,
@@ -107,6 +108,12 @@ exports.runExpirySweep = async () => {
         try {
           await Fine.create({ rental: rental._id, user: rental.user, amount: fineAmount });
           result.finesCreated++;
+          audit.log({
+            action: "FINE_CREATED",
+            locker: rental.locker,
+            rental: rental._id,
+            metadata: { amount: fineAmount },
+          });
         } catch (err) {
           if (err.code !== 11000) throw err; // already fined: fine
         }
@@ -174,6 +181,13 @@ exports.moveToHolding = async ({ staff, rentalId, location }) => {
     { status: LOCKER_STATUS.AVAILABLE, currentRental: null }
   );
 
+  audit.log({
+    user: staff,
+    action: "ITEM_HELD",
+    locker: rental.locker,
+    rental: rental._id,
+    metadata: { location: held.holding.location },
+  });
   return held;
 };
 
@@ -249,8 +263,21 @@ exports.verifyReleaseCode = async ({ staff, rentalId, code }) => {
 
   if (!safeEqual(attempt.codeHash, hashCode(attempt._id, String(code)))) {
     const left = maxAttempts - attempt.attempts;
+    audit.log({
+      user: staff,
+      action: left <= 0 ? "RELEASE_CODE_LOCKED" : "RELEASE_CODE_FAILED",
+      result: "FAILURE",
+      rental: rentalId,
+      metadata: { attempts: attempt.attempts },
+    });
     if (left <= 0) {
       await invalidate(attempt._id);
+      await audit.reportIncident({
+        type: "RELEASE_CODE_LOCKED",
+        severity: "HIGH",
+        rental: rentalId,
+        description: "Release code locked after repeated wrong attempts",
+      });
       throw httpError(429, "Too many incorrect attempts. Staff must reissue a code.");
     }
     throw httpError(400, `Incorrect code. ${left} attempt(s) left.`);
@@ -282,6 +309,13 @@ exports.verifyReleaseCode = async ({ staff, rentalId, code }) => {
     { status: LOCKER_STATUS.AVAILABLE, currentRental: null }
   );
 
+  audit.log({
+    user: staff,
+    action: "ITEM_RELEASED",
+    locker: rental.locker,
+    rental: rental._id,
+    metadata: { from: rental.status },
+  });
   return { rental: released, itemLocation };
 };
 
@@ -305,6 +339,14 @@ exports.reissueReleaseCode = async ({ staff, rentalId }) => {
     rentalId,
     userId: rental.user,
     issuedBy: staff._id,
+  });
+
+  audit.log({ user: staff, action: "RELEASE_CODE_REISSUED", rental: rentalId });
+  await audit.resolveIncidents({
+    types: ["RELEASE_CODE_LOCKED"],
+    rental: rentalId,
+    resolvedBy: staff._id,
+    note: "Release code reissued",
   });
 
   return { code, expiresAt: release.expiresAt };
