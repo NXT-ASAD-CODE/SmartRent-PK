@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Machine = require("../models/Machine");
 const hardwareService = require("../services/hardwareService");
+const audit = require("../services/auditService");
 
 const MACHINE_EDITABLE_FIELDS = ["name", "location", "status", "capacity"];
 
@@ -9,6 +10,13 @@ exports.createMachine = async (req, res) => {
   const { machineId, name, location, capacity } = req.body;
 
   const machine = await Machine.create({ machineId, name, location, capacity });
+
+  audit.log({
+    user: req.user,
+    action: "MACHINE_CREATED",
+    machine: machine._id,
+    metadata: { machineId: machine.machineId },
+  });
 
   res.status(201).json({ success: true, machine });
 };
@@ -59,8 +67,16 @@ exports.updateMachine = async (req, res) => {
     return res.status(404).json({ success: false, message: "Machine not found" });
   }
 
+  audit.log({
+    user: req.user,
+    action: "MACHINE_UPDATED",
+    machine: machine._id,
+    metadata: { changed: Object.keys(updates) },
+  });
+
   res.status(200).json({ success: true, machine });
 };
+
 // POST /api/machines/:id/device-key (admin) - creates or rotates the ESP32 secret
 exports.createDeviceKey = async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -68,6 +84,13 @@ exports.createDeviceKey = async (req, res) => {
   }
 
   const { machine, deviceKey } = await hardwareService.rotateDeviceKey(req.params.id);
+
+  // The key itself is never logged, only the fact that it was rotated
+  audit.log({
+    user: req.user,
+    action: "DEVICE_KEY_ROTATED",
+    machine: machine._id,
+  });
 
   res.status(201).json({
     success: true,
