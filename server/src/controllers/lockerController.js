@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Machine = require("../models/Machine");
 const Locker = require("../models/Locker");
 const hardwareService = require("../services/hardwareService");
+const audit = require("../services/auditService");
 const { LOCKER_STATUS } = require("../config/constants");
 
 // Admins/operators may only toggle these manually.
@@ -35,6 +36,14 @@ exports.createLocker = async (req, res) => {
     lockerNumber,
     size,
     pricePerHour,
+  });
+
+  audit.log({
+    user: req.user,
+    action: "LOCKER_CREATED",
+    machine: locker.machine,
+    locker: locker._id,
+    metadata: { lockerNumber: locker.lockerNumber },
   });
 
   res.status(201).json({ success: true, locker });
@@ -106,8 +115,17 @@ exports.updateLocker = async (req, res) => {
 
   await locker.save(); // runs validators
 
+  audit.log({
+    user: req.user,
+    action: "LOCKER_UPDATED",
+    machine: locker.machine,
+    locker: locker._id,
+    metadata: { status, size, pricePerHour },
+  });
+
   res.status(200).json({ success: true, locker });
 };
+
 // POST /api/lockers/:id/unlock  (rental owner, verified OTP required)
 exports.unlockLocker = async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -156,6 +174,20 @@ exports.resolveLockerFailure = async (req, res) => {
   const result = await hardwareService.resolveFailure({
     lockerId: req.params.id,
     resolution,
+  });
+
+  audit.log({
+    user: req.user,
+    action: "FAILURE_RESOLVED",
+    machine: result.locker && result.locker.machine,
+    locker: req.params.id,
+    metadata: { resolution },
+  });
+  await audit.resolveIncidents({
+    types: ["OPENING_FAILED", "SENSOR_TIMEOUT"],
+    locker: req.params.id,
+    resolvedBy: req.user._id,
+    note: `Resolved by staff: ${resolution}`,
   });
 
   res.status(200).json({ success: true, ...result });
