@@ -10,6 +10,7 @@ const otpRoutes = require("./routes/otpRoutes");
 const deviceRoutes = require("./routes/deviceRoutes");
 const fineRoutes = require("./routes/fineRoutes");
 const releaseRoutes = require("./routes/releaseRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.get("/", (req, res) => {
     message: "SmartRent PK API is running",
   });
 });
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/machines", machineRoutes);
@@ -34,6 +36,8 @@ app.use("/api/otp", otpRoutes);
 app.use("/api/device", deviceRoutes);
 app.use("/api/fines", fineRoutes);
 app.use("/api/release-codes", releaseRoutes);
+app.use("/api/admin", adminRoutes);
+
 app.use(notFound);
 app.use(errorHandler);
 
