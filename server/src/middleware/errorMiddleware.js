@@ -5,7 +5,17 @@ exports.notFound = (req, res) => {
 };
 
 exports.errorHandler = (err, req, res, next) => {
-  // Duplicate key (email / phone / machineId already exists)
+  if (res.headersSent) return next(err);
+
+  // Broken or oversized request bodies (from express.json)
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ success: false, message: "Invalid JSON body" });
+  }
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ success: false, message: "Request body too large" });
+  }
+
+  // Duplicate key (phone / email / machineId already exists)
   if (err.code === 11000) {
     const field = Object.keys(err.keyPattern || {})[0] || "field";
     return res
@@ -28,9 +38,14 @@ exports.errorHandler = (err, req, res, next) => {
       .json({ success: false, message: `Invalid ${err.path}` });
   }
 
-  console.error(err);
-  res.status(err.statusCode || 500).json({
+  const status = err.statusCode || err.status || 500;
+  if (status >= 500) console.error(err);
+
+  // Unexpected errors never leak internals in production
+  const hide = status === 500 && process.env.NODE_ENV === "production";
+
+  res.status(status).json({
     success: false,
-    message: err.message || "Server error",
+    message: hide ? "Server error" : err.message || "Server error",
   });
 };
