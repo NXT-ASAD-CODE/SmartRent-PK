@@ -4,11 +4,13 @@ const {
   reissueReleaseCode,
 } = require("../controllers/fineController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const { releaseCodeLimiter } = require("../middleware/rateLimiter");
 const { ROLES } = require("../config/constants");
 
 const router = express.Router();
 
-router.use(protect, authorizeRoles(ROLES.ADMIN, ROLES.OPERATOR));
+// Role check first, so customers get a 403 and are never counted
+router.use(protect, authorizeRoles(ROLES.ADMIN, ROLES.OPERATOR), releaseCodeLimiter);
 
 router.post("/verify", verifyReleaseCode);
 router.post("/reissue", reissueReleaseCode);
