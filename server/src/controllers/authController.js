@@ -14,17 +14,25 @@ const sanitizeUser = (user) => ({
 const registerUser = async (req, res) => {
   const { name, phone, email, password } = req.body;
 
-  if (!name || !phone || !password) {
+  // Must be real strings (a JSON object here would otherwise reach the database layer)
+  if (
+    typeof name !== "string" ||
+    typeof phone !== "string" ||
+    typeof password !== "string" ||
+    (email !== undefined && typeof email !== "string") ||
+    !name.trim() ||
+    !phone.trim()
+  ) {
     return res.status(400).json({
       success: false,
       message: "Name, phone and password are required",
     });
   }
 
-  if (password.length < 8) {
+  if (password.length < 8 || password.length > 72) {
     return res.status(400).json({
       success: false,
-      message: "Password must be at least 8 characters",
+      message: "Password must be between 8 and 72 characters",
     });
   }
 
@@ -51,7 +59,13 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { phone, password } = req.body;
 
-  if (!phone || !password) {
+  // Strings only: an object like {"$gt": ""} must never reach the query
+  if (
+    typeof phone !== "string" ||
+    typeof password !== "string" ||
+    !phone ||
+    !password
+  ) {
     return res.status(400).json({
       success: false,
       message: "Phone and password are required",
