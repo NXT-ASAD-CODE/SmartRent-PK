@@ -24,7 +24,11 @@ exports.createMachine = async (req, res) => {
 // GET /api/machines (public)
 exports.getMachines = async (req, res) => {
   const filter = {};
-  if (req.query.city) filter["location.city"] = new RegExp(`^${req.query.city}$`, "i");
+  if (typeof req.query.city === "string" && req.query.city.trim()) {
+    // Escape regex characters so the city filter can't be abused as a pattern
+    const escaped = req.query.city.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter["location.city"] = new RegExp(`^${escaped}$`, "i");
+  }
   if (req.query.status) filter.status = req.query.status;
 
   const machines = await Machine.find(filter).sort({ createdAt: -1 });
